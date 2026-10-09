@@ -26,4 +26,6 @@ public interface StockTransactionRepository extends JpaRepository<StockTransacti
 
     @Query("SELECT (COUNT(st) > 0) FROM StockTransaction st WHERE st.sourceRack.id = :rackId OR st.destinationRack.id = :rackId")
     boolean existsByRackId(@Param("rackId") UUID rackId);
+
+    List<StockTransaction> findTop10ByOrderByCreatedAtDesc();
 }

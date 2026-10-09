@@ -27,4 +27,16 @@ public interface InventoryRepository extends JpaRepository<Inventory, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT i FROM Inventory i WHERE i.product.id = :productId AND i.rack.id = :rackId")
     Optional<Inventory> findByProductIdAndRackIdForUpdate(@Param("productId") UUID productId, @Param("rackId") UUID rackId);
+
+    @Query("SELECT COALESCE(SUM(i.quantity), 0) FROM Inventory i")
+    long sumTotalQuantity();
+
+    @Query("SELECT SUM(i.quantity * p.unitPrice) FROM Inventory i JOIN i.product p")
+    java.math.BigDecimal calculateTotalInventoryValuation();
+
+    @Query("SELECT i.product.id, SUM(i.quantity) FROM Inventory i GROUP BY i.product.id")
+    List<Object[]> findTotalStockGroupedByProductId();
+
+    @Query("SELECT COALESCE(SUM(i.quantity), 0) FROM Inventory i WHERE i.product.id = :productId")
+    int sumQuantityByProductId(@Param("productId") UUID productId);
 }

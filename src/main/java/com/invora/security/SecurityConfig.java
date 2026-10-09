@@ -77,14 +77,19 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/stock/transactions/**")
                                 .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER", "STAFF")
 
-                        // 4. Warehouse & Catalog write operations (ADMIN, WAREHOUSE_MANAGER)
+                        // 4. Warehouse, Catalog & Alert management write operations (ADMIN, WAREHOUSE_MANAGER)
                         .requestMatchers(HttpMethod.POST,
                                 "/api/categories/**", "/api/products/**", "/api/suppliers/**",
-                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**")
+                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
+                                "/api/alerts/**")
                                 .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/categories/**", "/api/products/**", "/api/suppliers/**",
-                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**")
+                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
+                                "/api/alerts/**")
+                                .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PATCH,
+                                "/api/alerts/**")
                                 .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
                         .requestMatchers(HttpMethod.DELETE,
                                 "/api/categories/**", "/api/products/**", "/api/suppliers/**",
@@ -95,7 +100,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/categories/**", "/api/products/**", "/api/suppliers/**",
                                 "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
-                                "/api/inventory/**", "/api/stock/transactions/**")
+                                "/api/inventory/**", "/api/stock/transactions/**",
+                                "/api/dashboard/**", "/api/alerts/**")
                                 .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER", "STAFF", "VIEWER")
 
                         // 6. Deny any unauthenticated access to remaining APIs by default

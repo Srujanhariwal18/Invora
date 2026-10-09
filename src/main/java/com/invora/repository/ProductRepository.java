@@ -28,4 +28,12 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     boolean existsByCategoryId(UUID categoryId);
 
     boolean existsBySupplierId(UUID supplierId);
+
+    long countByActiveTrue();
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(p) FROM Product p WHERE p.active = true AND (SELECT COALESCE(SUM(i.quantity), 0) FROM Inventory i WHERE i.product = p) <= p.threshold")
+    long countLowStockProducts();
+
+    @org.springframework.data.jpa.repository.Query("SELECT p FROM Product p WHERE p.active = true AND (SELECT COALESCE(SUM(i.quantity), 0) FROM Inventory i WHERE i.product = p) <= p.threshold")
+    List<Product> findLowStockProducts();
 }

@@ -273,10 +273,11 @@ class SecurityAuthorizationTests {
     @DisplayName("Tampered token signature returns HTTP 401 Unauthorized")
     void testTamperedToken_Returns401() throws Exception {
         String validToken = createTokenForUser("tamper_test", "tamper@invora.local", Role.VIEWER);
-        // Alter the last character of the token
-        char lastChar = validToken.charAt(validToken.length() - 1);
-        char replacementChar = (lastChar == 'a') ? 'b' : 'a';
-        String tamperedToken = validToken.substring(0, validToken.length() - 1) + replacementChar;
+        // Alter the signature (first character of signature part to ensure modifying signature data bits)
+        int sigStart = validToken.lastIndexOf('.') + 1;
+        char sigChar = validToken.charAt(sigStart);
+        char replacementChar = (sigChar == 'a') ? 'b' : 'a';
+        String tamperedToken = validToken.substring(0, sigStart) + replacementChar + validToken.substring(sigStart + 1);
 
         mockMvc.perform(get("/api/categories")
                 .header("Authorization", "Bearer " + tamperedToken))
