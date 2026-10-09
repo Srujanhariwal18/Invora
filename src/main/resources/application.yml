@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: Invora
+
+  # ── DataSource ──────────────────────────────────────────────
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: InvoraHikariPool
+      minimum-idle: 2
+      maximum-pool-size: 10
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      # Required for Supabase (connection pooler mode)
+      connection-init-sql: SET search_path TO public
+
+  # ── JPA / Hibernate ─────────────────────────────────────────
+  jpa:
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: public
+        jdbc:
+          time_zone: UTC
+
+  # ── Flyway ──────────────────────────────────────────────────
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    out-of-order: false
+    encoding: UTF-8
+
+# ── Server ────────────────────────────────────────────────────
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+# ── Logging ───────────────────────────────────────────────────
+logging:
+  level:
+    root: INFO
+    com.invora: DEBUG
+    org.flywaydb: INFO
+    org.hibernate.SQL: WARN

@@ -1,0 +1,28 @@
+spring:
+  # ── DataSource (all values MUST be provided as env vars in production) ──
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 20
+
+  # ── JPA ─────────────────────────────────────────────────────
+  jpa:
+    show-sql: false
+
+# ── Server hardening ─────────────────────────────────────────
+server:
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        secure: true
+        same-site: strict
+
+# ── Logging (minimal in production) ──────────────────────────
+logging:
+  level:
+    root: WARN
+    com.invora: INFO
+    org.flywaydb: INFO
