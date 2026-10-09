@@ -14,4 +14,10 @@ public interface ZoneRepository extends JpaRepository<Zone, UUID> {
     List<Zone> findByWarehouseId(UUID warehouseId);
 
     Optional<Zone> findByWarehouseIdAndCode(UUID warehouseId, String code);
+
+    boolean existsByWarehouseId(UUID warehouseId);
+
+    boolean existsByWarehouseIdAndCode(UUID warehouseId, String code);
+
+    boolean existsByWarehouseIdAndCodeAndIdNot(UUID warehouseId, String code, UUID id);
 }

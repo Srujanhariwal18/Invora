@@ -16,4 +16,6 @@ public interface InventoryRepository extends JpaRepository<Inventory, UUID> {
     List<Inventory> findByProductId(UUID productId);
 
     List<Inventory> findByRackId(UUID rackId);
+
+    boolean existsByRackId(UUID rackId);
 }

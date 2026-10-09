@@ -14,4 +14,10 @@ public interface RackRepository extends JpaRepository<Rack, UUID> {
     List<Rack> findByZoneId(UUID zoneId);
 
     Optional<Rack> findByZoneIdAndCode(UUID zoneId, String code);
+
+    boolean existsByZoneId(UUID zoneId);
+
+    boolean existsByZoneIdAndCode(UUID zoneId, String code);
+
+    boolean existsByZoneIdAndCodeAndIdNot(UUID zoneId, String code, UUID id);
 }
