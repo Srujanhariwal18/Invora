@@ -14,6 +14,8 @@ import java.util.UUID;
 @Repository
 public interface StockTransactionRepository extends JpaRepository<StockTransaction, UUID> {
 
+    List<StockTransaction> findAllByOrderByCreatedAtDesc();
+
     List<StockTransaction> findByProductIdOrderByCreatedAtDesc(UUID productId);
 
     List<StockTransaction> findByReference(String reference);
