@@ -4,6 +4,7 @@ import com.invora.dto.StockInRequest;
 import com.invora.dto.StockOutRequest;
 import com.invora.dto.StockTransactionResponse;
 import com.invora.dto.StockTransferRequest;
+import com.invora.entity.AuditLog;
 import com.invora.entity.Inventory;
 import com.invora.entity.Product;
 import com.invora.entity.Rack;
@@ -12,6 +13,7 @@ import com.invora.entity.TransactionType;
 import com.invora.entity.User;
 import com.invora.exception.ConflictException;
 import com.invora.exception.ResourceNotFoundException;
+import com.invora.repository.AuditLogRepository;
 import com.invora.repository.InventoryRepository;
 import com.invora.repository.ProductRepository;
 import com.invora.repository.RackRepository;
@@ -33,17 +35,20 @@ public class StockTransactionServiceImpl implements StockTransactionService {
     private final ProductRepository productRepository;
     private final RackRepository rackRepository;
     private final UserRepository userRepository;
+    private final AuditLogRepository auditLogRepository;
 
     public StockTransactionServiceImpl(StockTransactionRepository stockTransactionRepository,
                                        InventoryRepository inventoryRepository,
                                        ProductRepository productRepository,
                                        RackRepository rackRepository,
-                                       UserRepository userRepository) {
+                                       UserRepository userRepository,
+                                       AuditLogRepository auditLogRepository) {
         this.stockTransactionRepository = stockTransactionRepository;
         this.inventoryRepository = inventoryRepository;
         this.productRepository = productRepository;
         this.rackRepository = rackRepository;
         this.userRepository = userRepository;
+        this.auditLogRepository = auditLogRepository;
     }
 
     private User resolveActingUser(UUID legacyPerformedById) {
@@ -115,6 +120,13 @@ public class StockTransactionServiceImpl implements StockTransactionService {
         );
 
         StockTransaction saved = stockTransactionRepository.save(tx);
+        auditLogRepository.save(new AuditLog(
+                user,
+                "STOCK_IN",
+                "StockTransaction",
+                saved.getId().toString(),
+                String.format("Stock IN of %d units for SKU %s into rack %s", saved.getQuantity(), product.getSku(), destinationRack.getCode())
+        ));
         return StockTransactionResponse.fromEntity(saved);
     }
 
@@ -159,6 +171,13 @@ public class StockTransactionServiceImpl implements StockTransactionService {
         );
 
         StockTransaction saved = stockTransactionRepository.save(tx);
+        auditLogRepository.save(new AuditLog(
+                user,
+                "STOCK_OUT",
+                "StockTransaction",
+                saved.getId().toString(),
+                String.format("Stock OUT of %d units for SKU %s from rack %s", saved.getQuantity(), product.getSku(), sourceRack.getCode())
+        ));
         return StockTransactionResponse.fromEntity(saved);
     }
 
@@ -227,6 +246,13 @@ public class StockTransactionServiceImpl implements StockTransactionService {
         );
 
         StockTransaction saved = stockTransactionRepository.save(tx);
+        auditLogRepository.save(new AuditLog(
+                user,
+                "STOCK_TRANSFER",
+                "StockTransaction",
+                saved.getId().toString(),
+                String.format("Stock TRANSFER of %d units for SKU %s from rack %s to rack %s", saved.getQuantity(), product.getSku(), sourceRack.getCode(), destinationRack.getCode())
+        ));
         return StockTransactionResponse.fromEntity(saved);
     }
 

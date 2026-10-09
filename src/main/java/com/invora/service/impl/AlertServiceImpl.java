@@ -145,22 +145,25 @@ public class AlertServiceImpl implements AlertService {
         return AlertResponse.fromEntity(savedAlert);
     }
 
+    private static final Object DETECTION_LOCK = new Object();
+
     @Override
     @Transactional
     public AlertDetectionResponse detectLowStockAlerts() {
-        List<Product> activeProducts = productRepository.findByActiveTrue();
+        synchronized (DETECTION_LOCK) {
+            List<Product> activeProducts = productRepository.findByActiveTrue();
 
-        List<Object[]> groupedStock = inventoryRepository.findTotalStockGroupedByProductId();
-        Map<UUID, Integer> stockMap = new HashMap<>();
-        for (Object[] row : groupedStock) {
-            UUID pId = (UUID) row[0];
-            int total = ((Number) row[1]).intValue();
-            stockMap.put(pId, total);
-        }
+            List<Object[]> groupedStock = inventoryRepository.findTotalStockGroupedByProductId();
+            Map<UUID, Integer> stockMap = new HashMap<>();
+            for (Object[] row : groupedStock) {
+                UUID pId = (UUID) row[0];
+                int total = ((Number) row[1]).intValue();
+                stockMap.put(pId, total);
+            }
 
-        int alertsCreated = 0;
-        int alertsUpdated = 0;
-        int alertsResolved = 0;
+            int alertsCreated = 0;
+            int alertsUpdated = 0;
+            int alertsResolved = 0;
 
         for (Product product : activeProducts) {
             int currentStock = stockMap.getOrDefault(product.getId(), 0);
@@ -232,14 +235,15 @@ public class AlertServiceImpl implements AlertService {
                 .map(AlertResponse::fromEntity)
                 .toList();
 
-        return new AlertDetectionResponse(
-                activeProducts.size(),
-                alertsCreated,
-                alertsUpdated,
-                alertsResolved,
-                totalActive,
-                activeAlerts
-        );
+            return new AlertDetectionResponse(
+                    activeProducts.size(),
+                    alertsCreated,
+                    alertsUpdated,
+                    alertsResolved,
+                    totalActive,
+                    activeAlerts
+            );
+        }
     }
 
     private User resolveActingUser() {

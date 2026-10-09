@@ -73,11 +73,14 @@ public class SecurityConfig {
                         // 2. Authenticated user profile
                         .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
 
-                        // 3. Stock movement operations (ADMIN, WAREHOUSE_MANAGER, STAFF)
+                        // 3. Sensitive audit log querying strictly restricted to ADMIN
+                        .requestMatchers("/api/audit-logs/**").hasRole("ADMIN")
+
+                        // 4. Stock movement operations (ADMIN, WAREHOUSE_MANAGER, STAFF)
                         .requestMatchers(HttpMethod.POST, "/api/stock/transactions/**")
                                 .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER", "STAFF")
 
-                        // 4. Warehouse, Catalog & Alert management write operations (ADMIN, WAREHOUSE_MANAGER)
+                        // 5. Warehouse, Catalog & Alert management write operations (ADMIN, WAREHOUSE_MANAGER)
                         .requestMatchers(HttpMethod.POST,
                                 "/api/categories/**", "/api/products/**", "/api/suppliers/**",
                                 "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
@@ -96,15 +99,16 @@ public class SecurityConfig {
                                 "/api/warehouses/**", "/api/zones/**", "/api/racks/**")
                                 .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
 
-                        // 5. Read-only queries for all authenticated roles (ADMIN, WAREHOUSE_MANAGER, STAFF, VIEWER)
+                        // 6. Read-only queries and reports for authenticated roles (ADMIN, WAREHOUSE_MANAGER, STAFF, VIEWER)
                         .requestMatchers(HttpMethod.GET,
                                 "/api/categories/**", "/api/products/**", "/api/suppliers/**",
                                 "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
                                 "/api/inventory/**", "/api/stock/transactions/**",
-                                "/api/dashboard/**", "/api/alerts/**")
+                                "/api/dashboard/**", "/api/alerts/**",
+                                "/api/reports/**")
                                 .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER", "STAFF", "VIEWER")
 
-                        // 6. Deny any unauthenticated access to remaining APIs by default
+                        // 7. Deny any unauthenticated access to remaining APIs by default
                         .anyRequest().authenticated()
                 )
                 // Add JWT filter before standard UsernamePasswordAuthenticationFilter
