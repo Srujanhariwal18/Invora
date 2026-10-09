@@ -2,7 +2,7 @@
 
 ## 1. Executive Summary
 
-**Invora** is an enterprise-grade Warehouse Inventory Management and Real-Time Threshold Alert System built with **Java 21**, **Spring Boot 3.x**, **Spring Data JPA**, and **MySQL 8.x**. The frontend is a modern, high-performance vanilla web client featuring a dark "warehouse control center" visual aesthetic and an interactive 3D digital twin warehouse powered by Three.js.
+**Invora** is an enterprise-grade Warehouse Inventory Management and Real-Time Threshold Alert System built with **Java 21**, **Spring Boot 3.x**, **Spring Data JPA**, and **Supabase (PostgreSQL 15+)**. The frontend is a modern, high-performance vanilla web client featuring a dark "warehouse control center" visual aesthetic and an interactive 3D digital twin warehouse powered by Three.js.
 
 The architecture emphasizes strict separation of concerns, enterprise concurrency controls (pessimistic locking and optimistic lock versioning), atomic inventory transactions, automated threshold alert lifecycle management, and real-time updates via Server-Sent Events (SSE).
 
@@ -19,8 +19,8 @@ The architecture emphasizes strict separation of concerns, enterprise concurrenc
 | **Build Tool** | Apache Maven + Maven Wrapper | 3.9+ / `mvnw` | Deterministic builds without requiring global Maven installation on host machines. |
 | **Web Layer** | Spring Web (MVC / REST) | 3.4.x | High-throughput REST API architecture serving JSON endpoints and static assets. |
 | **Persistence Layer** | Spring Data JPA / Hibernate | 6.x | Object-relational mapping, custom JPQL queries, pessimistic locking (`@Lock(PESSIMISTIC_WRITE)`), and optimistic locking (`@Version`). |
-| **Database** | MySQL | 8.0 / 8.4 | InnoDB engine, `utf8mb4` charset, `DATETIME(3)` millisecond precision, explicit foreign keys, indexes, and `CHECK (quantity >= 0)` constraints. |
-| **Database Migrations** | Flyway | 10.x (`flyway-core` + `flyway-mysql`) | Versioned, immutable SQL schema migrations (`V1__schema.sql`, `V2__seed_data.sql`). |
+| **Database** | Supabase (PostgreSQL) | 15+ | Cloud-hosted managed PostgreSQL via Supabase, `TIMESTAMPTZ` with millisecond precision, explicit foreign keys, indexes, optional Row Level Security (RLS), and `CHECK (quantity >= 0)` constraints. Connection pooling via Supavisor / HikariCP. |
+| **Database Migrations** | Flyway | 10.x (`flyway-core` + `flyway-database-postgresql`) | Versioned, immutable SQL schema migrations (`V1__schema.sql`, `V2__seed_data.sql`). |
 | **Security & Auth** | Spring Security | 6.x | Session-based authentication (`JSESSIONID`, HttpOnly cookies), BCrypt password hashing, role-based access control (`@PreAuthorize`), CSRF protection with cookie token support. |
 | **Validation** | Jakarta Bean Validation | 3.0 (`hibernate-validator`) | Declarative DTO validation (`@NotNull`, `@Positive`, `@Size`, `@Pattern`, custom constraints). |
 | **Scheduling** | Spring `@Scheduled` | 3.4.x | Automated background tasks for daily inventory summaries, expiry tracking, and alert checks. |
@@ -53,7 +53,7 @@ The architecture emphasizes strict separation of concerns, enterprise concurrenc
 | **Unit Testing** | JUnit 5, Mockito, AssertJ | Business logic verification: `ThresholdService`, `ForecastService`, entity methods, custom multipliers, mathematical boundaries. |
 | **Integration Testing** | Spring Boot Test, MockMvc | Full REST API lifecycle, role permissions, CSRF validation, HTTP error handling. |
 | **Concurrency Testing** | Parallel ExecutorService + MockMvc / Services | Parallel stock-out requests verifying negative-stock prevention and database lock isolation. |
-| **Database Testing** | H2 (MySQL Mode) & Testcontainers MySQL | Test isolation without modifying development databases. |
+| **Database Testing** | H2 (PostgreSQL Mode) & Testcontainers PostgreSQL | Test isolation without modifying development databases. |
 
 ---
 
@@ -88,7 +88,7 @@ The architecture emphasizes strict separation of concerns, enterprise concurrenc
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │ JDBC / SQL
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│                       DATABASE (MySQL 8 / InnoDB)                           │
+│                  DATABASE (Supabase / PostgreSQL 15+)                      │
 │   - Versioned Migrations (Flyway V1, V2)                                    │
 │   - CHECK (quantity >= 0), Foreign Keys, Composite Indexes                 │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -125,7 +125,7 @@ else                                        -> NORMAL        (Hex: #22C55E, Defa
 1. **Application Level**: Validates `requestedQuantity <= currentQuantity`.
 2. **JPA Level**: Queries execute with `@Lock(LockModeType.PESSIMISTIC_WRITE)` to serialize parallel transactions touching the same inventory row.
 3. **Optimistic Guard**: An `@Version Long version` attribute guards against stale detached modifications.
-4. **Database Level**: Table constraint `CHECK (quantity >= 0)` ensures MySQL enforces non-negative stock even under unexpected race conditions.
+4. **Database Level**: Table constraint `CHECK (quantity >= 0)` ensures Supabase / PostgreSQL enforces non-negative stock even under unexpected race conditions.
 
 ---
 
