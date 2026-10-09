@@ -81,6 +81,32 @@ class ProductControllerTests {
     }
 
     @Test
+    @DisplayName("POST /api/products - Success creates product with missing/null optional supplier")
+    void testCreateProduct_MissingSupplier_Success() throws Exception {
+        ProductRequest request = new ProductRequest(
+                "SKU-NO-SUPPLIER-001",
+                "Self-Manufactured Component",
+                SEED_CATEGORY_ID,
+                null,
+                "PIECE",
+                new BigDecimal("19.99"),
+                5,
+                15,
+                "Item without assigned supplier"
+        );
+
+        mockMvc.perform(post("/api/products")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.sku").value("SKU-NO-SUPPLIER-001"))
+                .andExpect(jsonPath("$.supplierId").doesNotExist())
+                .andExpect(jsonPath("$.supplierName").doesNotExist())
+                .andExpect(jsonPath("$.categoryName").value("Raw Materials"));
+    }
+
+    @Test
     @DisplayName("POST /api/products - Duplicate SKU returns HTTP 409 Conflict")
     void testCreateProduct_DuplicateSku_Returns409() throws Exception {
         // SKU-BOLT-M10 is in seed data
