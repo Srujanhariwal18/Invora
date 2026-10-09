@@ -26,3 +26,9 @@ logging:
     root: WARN
     com.invora: INFO
     org.flywaydb: INFO
+
+# ── JWT (MUST be provided as env var in production) ───────────
+invora:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}

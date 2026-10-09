@@ -31,6 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
+@org.springframework.security.test.context.support.WithMockUser(username = "admin_demo", roles = {"ADMIN"})
 class ZoneControllerTests {
 
     @Autowired
