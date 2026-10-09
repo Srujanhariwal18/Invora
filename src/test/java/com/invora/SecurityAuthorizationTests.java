@@ -61,9 +61,22 @@ class SecurityAuthorizationTests {
     @Autowired
     private StockTransactionRepository stockTransactionRepository;
 
+    @Autowired
+    private com.invora.service.StockTransactionService stockTransactionService;
+
     private static final UUID SEED_PRODUCT_ID = UUID.fromString("d0000000-0000-0000-0000-000000000001");
     private static final UUID SEED_RACK_A1_ID = UUID.fromString("e2000000-0000-0000-0000-000000000001");
     private static final UUID SEED_ADMIN_ID = UUID.fromString("a0000000-0000-0000-0000-000000000001");
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void tearDown() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
 
     private String createTokenForUser(String username, String email, Role role) {
         User user = userRepository.save(new User(
@@ -254,5 +267,40 @@ class SecurityAuthorizationTests {
                 .isEqualTo(staffActor.getId())
                 .isNotEqualTo(SEED_ADMIN_ID);
         assertThat(savedTx.getPerformedBy().getUsername()).isEqualTo("actual_worker");
+    }
+
+    @Test
+    @DisplayName("Tampered token signature returns HTTP 401 Unauthorized")
+    void testTamperedToken_Returns401() throws Exception {
+        String validToken = createTokenForUser("tamper_test", "tamper@invora.local", Role.VIEWER);
+        // Alter the last character of the token
+        char lastChar = validToken.charAt(validToken.length() - 1);
+        char replacementChar = (lastChar == 'a') ? 'b' : 'a';
+        String tamperedToken = validToken.substring(0, validToken.length() - 1) + replacementChar;
+
+        mockMvc.perform(get("/api/categories")
+                .header("Authorization", "Bearer " + tamperedToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
+    @DisplayName("Unauthenticated stock operation invocation fails safely with AccessDeniedException without selecting seed admin")
+    void testUnauthenticatedStockOperation_FailsSafely_ThrowsAccessDenied() {
+        // Clear security context to ensure completely unauthenticated execution
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+
+        StockInRequest request = new StockInRequest(
+                SEED_PRODUCT_ID,
+                SEED_RACK_A1_ID,
+                10,
+                "PO-UNAUTH",
+                "Unauthenticated attempt",
+                null
+        );
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> stockTransactionService.processStockIn(request))
+                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class)
+                .hasMessageContaining("Authentication required");
     }
 }

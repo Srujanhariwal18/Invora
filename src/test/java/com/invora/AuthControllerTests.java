@@ -222,6 +222,55 @@ class AuthControllerTests {
     }
 
     @Test
+    @DisplayName("POST /api/auth/register - Client-supplied role field is ignored and always defaults to VIEWER")
+    void testRegister_IgnoresSuppliedRole_AlwaysAssignsViewer() throws Exception {
+        String payloadWithAdmin = """
+                {
+                    "username": "role_hacker",
+                    "email": "hacker@invora.local",
+                    "password": "Password123!",
+                    "role": "ADMIN"
+                }
+                """;
+
+        mockMvc.perform(post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payloadWithAdmin))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.role").value("VIEWER"));
+
+        User savedUser = userRepository.findByUsername("role_hacker").orElseThrow();
+        assertThat(savedUser.getRole()).isEqualTo(Role.VIEWER);
+    }
+
+    @Test
+    @DisplayName("JWT Authentication - Deactivated user with previously valid JWT token is rejected with HTTP 401")
+    void testJwtAuthentication_DeactivatedUser_Rejected() throws Exception {
+        // Register active user and obtain token
+        RegisterRequest registerReq = new RegisterRequest("temp_active_user", "temp@invora.local", "MyPass123!");
+        MvcResult regResult = mockMvc.perform(post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(registerReq)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String token = objectMapper.readTree(regResult.getResponse().getContentAsString())
+                .get("accessToken").asText();
+
+        // Deactivate user in database
+        User user = userRepository.findByUsername("temp_active_user").orElseThrow();
+        user.setActive(false);
+        userRepository.save(user);
+
+        // Subsequent request using valid token must be rejected with 401
+        mockMvc.perform(get("/api/auth/me")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
     @DisplayName("GET /api/auth/me - Unauthenticated request returns HTTP 401 Unauthorized")
     void testGetMe_Unauthenticated_Returns401() throws Exception {
         mockMvc.perform(get("/api/auth/me")

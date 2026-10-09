@@ -30,7 +30,7 @@ public class DelegatedAuthenticationEntryPoint implements AuthenticationEntryPoi
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.UNAUTHORIZED.value(),
                 HttpStatus.UNAUTHORIZED.getReasonPhrase(),
-                "Full authentication is required to access this resource: " + authException.getMessage(),
+                "Full authentication is required to access this resource",
                 request.getRequestURI()
         );
 

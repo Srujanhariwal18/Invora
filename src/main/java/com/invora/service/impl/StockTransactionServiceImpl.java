@@ -63,15 +63,17 @@ public class StockTransactionServiceImpl implements StockTransactionService {
             if (userOpt.isPresent()) {
                 return userOpt.get();
             }
+            throw new ResourceNotFoundException("User", "username", username);
         }
 
-        // Fallback for isolated tests or unauthenticated context
+        // Unauthenticated or invalid context: fail safely rather than selecting a seed admin
         if (legacyPerformedById != null) {
             return userRepository.findById(legacyPerformedById)
                     .orElseThrow(() -> new ResourceNotFoundException("User", "id", legacyPerformedById));
         }
-        return userRepository.findAll().stream().findFirst()
-                .orElseThrow(() -> new ConflictException("No active user available to record stock transaction"));
+
+        throw new org.springframework.security.access.AccessDeniedException(
+                "Authentication required: No authenticated user available to record stock transaction");
     }
 
     @Override

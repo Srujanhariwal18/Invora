@@ -199,7 +199,9 @@ class StockMovementConcurrencyAndRollbackTests {
         // Exactly 6 requests can succeed: 6 * 15 = 90 (10 units remain). The 7th+ must fail.
         int expectedSuccessCount = initialStock / requestQuantity; // 6
 
-        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        ExecutorService executor = new org.springframework.security.concurrent.DelegatingSecurityContextExecutorService(
+                Executors.newFixedThreadPool(threadCount)
+        );
         CountDownLatch startLatch = new CountDownLatch(1);
         AtomicInteger successCounter = new AtomicInteger(0);
         AtomicInteger conflictCounter = new AtomicInteger(0);

@@ -1,0 +1,49 @@
+# Compiled class files
+target/
+*.class
+
+# Maven
+.mvn/timing.properties
+!.mvn/wrapper/maven-wrapper.jar
+
+# Spring Boot
+*.jar
+*.war
+*.ear
+
+# ===== SECRETS — NEVER COMMIT =====
+.env
+*.env.local
+*.env.*.local
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+*.launch
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Test output
+surefire-reports/
+
+# GSD & Agent instructions / Framework
+.agents/
+.planning/
