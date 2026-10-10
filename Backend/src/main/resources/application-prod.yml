@@ -11,6 +11,10 @@ spring:
   jpa:
     show-sql: false
 
+  # ── Flyway (strictly core migrations only, no dev seed) ──────
+  flyway:
+    locations: classpath:db/migration
+
 # ── Server hardening ─────────────────────────────────────────
 server:
   servlet:

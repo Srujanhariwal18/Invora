@@ -1,6 +1,12 @@
 spring:
   application:
     name: Invora
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 
   # ── DataSource ──────────────────────────────────────────────
   datasource:
@@ -15,6 +21,7 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
+      keepalive-time: 30000
       # Required for Supabase (connection pooler mode)
       connection-init-sql: SET search_path TO public
 
@@ -35,7 +42,7 @@ spring:
   # ── Flyway ──────────────────────────────────────────────────
   flyway:
     enabled: true
-    locations: classpath:db/migration
+    locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
     baseline-on-migrate: true
     validate-on-migrate: true
     out-of-order: false
@@ -58,5 +65,5 @@ logging:
 # ── Invora Security & JWT ─────────────────────────────────────
 invora:
   jwt:
-    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    secret: ${JWT_SECRET}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}

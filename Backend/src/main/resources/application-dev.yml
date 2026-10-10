@@ -1,6 +1,8 @@
 spring:
   config:
-    import: optional:file:.env[.properties]
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
 
   # ── DataSource ──────────────────────────────────────────────
   datasource:
@@ -14,6 +16,16 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+  # ── Flyway (dev defaults to core migrations + seed data) ────
+  flyway:
+    locations: ${FLYWAY_LOCATIONS:classpath:db/migration,classpath:db/seed}
+
+# ── Invora Security (dev fallback secret) ─────────────────────
+invora:
+  jwt:
+    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
 # ── Logging (verbose in dev) ──────────────────────────────────
 logging:
