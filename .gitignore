@@ -4,7 +4,8 @@ target/
 
 # Maven
 .mvn/timing.properties
-!.mvn/wrapper/maven-wrapper.jar
+Backend/.mvn/timing.properties
+!**/.mvn/wrapper/maven-wrapper.jar
 
 # Spring Boot
 *.jar
