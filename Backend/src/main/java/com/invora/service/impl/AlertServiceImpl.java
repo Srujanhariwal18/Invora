@@ -258,6 +258,6 @@ public class AlertServiceImpl implements AlertService {
                 return userRepository.findByUsername(username).orElse(null);
             }
         }
-        return userRepository.findAll().stream().findFirst().orElse(null);
+        return null;
     }
 }

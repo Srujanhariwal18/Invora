@@ -2,8 +2,10 @@ package com.invora.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -19,12 +21,14 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * Spring Security Configuration for Invora.
- * Authentication has been removed: all endpoints are publicly accessible,
- * while preserving CORS, CSRF disablement, and existing bean configurations.
+ * Spring Security JWT Configuration.
+ * Divided into two dedicated authentication sections:
+ *  - Section 1: ADMIN (Strictly restricted to ROLE_ADMIN)
+ *  - Section 2: NORMAL USERS (Accessible to ROLE_USER, STAFF, WAREHOUSE_MANAGER, VIEWER, and ADMIN)
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -55,20 +59,69 @@ public class SecurityConfig {
         http
                 // Configure CORS for frontend access
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                // Disable CSRF for stateless REST APIs
+                // Disable CSRF for stateless REST APIs using Bearer JWT tokens
                 .csrf(AbstractHttpConfigurer::disable)
-                // Stateless session management
+                // Stateless session management (no server-side session cookies)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // Custom 401 and 403 JSON responses matching Invora ErrorResponse schema
+                // Custom 401 (Unauthorized) and 403 (Forbidden) JSON error responses
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler)
                 )
-                // Permit all endpoints without requiring authentication
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll()
+                        // =========================================================================
+                        // 1. PUBLIC SECTION (Open to all unauthenticated requests)
+                        // =========================================================================
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers("/api/health/**", "/error").permitAll()
+
+                        // =========================================================================
+                        // 2. ADMIN SECTION (Strictly Admin Access Only: ROLE_ADMIN)
+                        // =========================================================================
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/audit-logs/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/categories/**", "/api/products/**", "/api/suppliers/**",
+                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**").hasRole("ADMIN")
+
+                        // =========================================================================
+                        // 3. NORMAL USERS SECTION (ROLE_USER, STAFF, WAREHOUSE_MANAGER, VIEWER, ADMIN)
+                        // =========================================================================
+                        .requestMatchers("/api/user/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
+
+                        // Normal users catalog & inventory queries
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/categories/**", "/api/products/**", "/api/suppliers/**",
+                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
+                                "/api/inventory/**", "/api/stock/transactions/**",
+                                "/api/dashboard/**", "/api/alerts/**",
+                                "/api/reports/**")
+                                .hasAnyRole("USER", "ADMIN", "WAREHOUSE_MANAGER", "STAFF", "VIEWER")
+
+                        // Stock transactions (Stock In, Stock Out, Transfer)
+                        .requestMatchers(HttpMethod.POST, "/api/stock/transactions/**")
+                                .hasAnyRole("USER", "ADMIN", "WAREHOUSE_MANAGER", "STAFF")
+
+                        // Warehouse, catalog and alert operations
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/categories/**", "/api/products/**", "/api/suppliers/**",
+                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
+                                "/api/alerts/**")
+                                .hasAnyRole("USER", "ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/categories/**", "/api/products/**", "/api/suppliers/**",
+                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
+                                "/api/alerts/**")
+                                .hasAnyRole("USER", "ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PATCH,
+                                "/api/alerts/**")
+                                .hasAnyRole("USER", "ADMIN", "WAREHOUSE_MANAGER")
+
+                        // Default: Any remaining endpoint requires authentication
+                        .anyRequest().authenticated()
                 )
-                // Keep JWT filter in chain: populates user context when token present, allows anonymous requests
+                // Add JWT authentication filter before standard UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
