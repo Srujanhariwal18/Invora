@@ -304,4 +304,62 @@ class SecurityAuthorizationTests {
                 .isInstanceOf(org.springframework.security.access.AccessDeniedException.class)
                 .hasMessageContaining("Authentication required");
     }
+
+    @Test
+    @DisplayName("Admin Section: Accessible to ADMIN role")
+    void testAdminSection_AccessibleToAdmin() throws Exception {
+        String adminToken = createTokenForUser("admin_sec_tester", "admin_sec@invora.local", Role.ADMIN);
+
+        mockMvc.perform(get("/api/admin/dashboard")
+                .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.section").value("ADMIN"))
+                .andExpect(jsonPath("$.status").value("HEALTHY"));
+    }
+
+    @Test
+    @DisplayName("Admin Section: Normal user (ROLE_USER) gets HTTP 403 Forbidden")
+    void testAdminSection_ForbiddenForNormalUser() throws Exception {
+        String userToken = createTokenForUser("normal_user_tester", "user_sec@invora.local", Role.USER);
+
+        mockMvc.perform(get("/api/admin/dashboard")
+                .header("Authorization", "Bearer " + userToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403));
+    }
+
+    @Test
+    @DisplayName("Normal User Section: Accessible to normal user (ROLE_USER)")
+    void testNormalUserSection_AccessibleToNormalUser() throws Exception {
+        String userToken = createTokenForUser("normal_user_portal", "user_portal@invora.local", Role.USER);
+
+        mockMvc.perform(get("/api/user/dashboard")
+                .header("Authorization", "Bearer " + userToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.section").value("NORMAL_USER"))
+                .andExpect(jsonPath("$.username").value("normal_user_portal"));
+    }
+
+    @Test
+    @DisplayName("Normal User Section: Accessible to ADMIN role")
+    void testNormalUserSection_AccessibleToAdmin() throws Exception {
+        String adminToken = createTokenForUser("admin_portal", "admin_portal@invora.local", Role.ADMIN);
+
+        mockMvc.perform(get("/api/user/dashboard")
+                .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.section").value("NORMAL_USER"));
+    }
+
+    @Test
+    @DisplayName("Both sections require authentication: Unauthenticated access returns HTTP 401")
+    void testBothSections_Unauthenticated_Returns401() throws Exception {
+        mockMvc.perform(get("/api/admin/dashboard"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+
+        mockMvc.perform(get("/api/user/dashboard"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+    }
 }

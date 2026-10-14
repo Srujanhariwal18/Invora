@@ -21,13 +21,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * Spring Security Configuration for Invora.
- *
- * CSRF RATIONALE:
- * CSRF (Cross-Site Request Forgery) protection is intentionally disabled via {@code csrf(AbstractHttpConfigurer::disable)}.
- * This REST API is strictly stateless ({@link SessionCreationPolicy#STATELESS}) and relies exclusively on Bearer JWTs
- * transmitted via HTTP Authorization headers rather than browser session cookies. Because web browsers do not automatically
- * attach Bearer tokens to cross-site requests, cross-site request forgery attacks are fundamentally prevented by design.
+ * Spring Security JWT Configuration.
+ * Divided into two dedicated authentication sections:
+ *  - Section 1: ADMIN (Strictly restricted to ROLE_ADMIN)
+ *  - Section 2: NORMAL USERS (Accessible to ROLE_USER, STAFF, WAREHOUSE_MANAGER, VIEWER, and ADMIN)
  */
 @Configuration
 @EnableWebSecurity
@@ -60,64 +57,72 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Disable CSRF as justified above for stateless Bearer token REST APIs
+                // Configure CORS for frontend access
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // Disable CSRF for stateless REST APIs using Bearer JWT tokens
                 .csrf(AbstractHttpConfigurer::disable)
-                // Stateless session management (no HttpSession or server-side cookies)
+                .csrf(AbstractHttpConfigurer::disable)
+                // Stateless session management (no server-side session cookies)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // Custom 401 and 403 JSON responses matching Invora ErrorResponse schema
+                // Custom 401 (Unauthorized) and 403 (Forbidden) JSON error responses
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler)
                 )
-                // Role-based URL authorization
                 .authorizeHttpRequests(auth -> auth
-                        // 1. Explicitly public endpoints
+                        // =========================================================================
+                        // 1. PUBLIC SECTION (Open to all unauthenticated requests)
+                        // =========================================================================
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers("/api/health/**", "/error").permitAll()
 
-                        // 2. Authenticated user profile
-                        .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
-
-                        // 3. Sensitive audit log querying strictly restricted to ADMIN
+                        // =========================================================================
+                        // 2. ADMIN SECTION (Strictly Admin Access Only: ROLE_ADMIN)
+                        // =========================================================================
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/audit-logs/**").hasRole("ADMIN")
-
-                        // 4. Stock movement operations (ADMIN, WAREHOUSE_MANAGER, STAFF)
-                        .requestMatchers(HttpMethod.POST, "/api/stock/transactions/**")
-                                .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER", "STAFF")
-
-                        // 5. Warehouse, Catalog & Alert management write operations (ADMIN, WAREHOUSE_MANAGER)
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/categories/**", "/api/products/**", "/api/suppliers/**",
-                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
-                                "/api/alerts/**")
-                                .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
-                        .requestMatchers(HttpMethod.PUT,
-                                "/api/categories/**", "/api/products/**", "/api/suppliers/**",
-                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
-                                "/api/alerts/**")
-                                .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
-                        .requestMatchers(HttpMethod.PATCH,
-                                "/api/alerts/**")
-                                .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
                         .requestMatchers(HttpMethod.DELETE,
                                 "/api/categories/**", "/api/products/**", "/api/suppliers/**",
-                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**")
-                                .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**").hasRole("ADMIN")
 
-                        // 6. Read-only queries and reports for authenticated roles (ADMIN, WAREHOUSE_MANAGER, STAFF, VIEWER)
+                        // =========================================================================
+                        // 3. NORMAL USERS SECTION (ROLE_USER, STAFF, WAREHOUSE_MANAGER, VIEWER, ADMIN)
+                        // =========================================================================
+                        .requestMatchers("/api/user/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
+
+                        // Normal users catalog & inventory queries
                         .requestMatchers(HttpMethod.GET,
                                 "/api/categories/**", "/api/products/**", "/api/suppliers/**",
                                 "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
                                 "/api/inventory/**", "/api/stock/transactions/**",
                                 "/api/dashboard/**", "/api/alerts/**",
                                 "/api/reports/**")
-                                .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER", "STAFF", "VIEWER")
+                                .hasAnyRole("USER", "ADMIN", "WAREHOUSE_MANAGER", "STAFF", "VIEWER")
 
-                        // 7. Deny any unauthenticated access to remaining APIs by default
+                        // Stock transactions (Stock In, Stock Out, Transfer)
+                        .requestMatchers(HttpMethod.POST, "/api/stock/transactions/**")
+                                .hasAnyRole("USER", "ADMIN", "WAREHOUSE_MANAGER", "STAFF")
+
+                        // Warehouse, catalog and alert operations
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/categories/**", "/api/products/**", "/api/suppliers/**",
+                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
+                                "/api/alerts/**")
+                                .hasAnyRole("USER", "ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/categories/**", "/api/products/**", "/api/suppliers/**",
+                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
+                                "/api/alerts/**")
+                                .hasAnyRole("USER", "ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PATCH,
+                                "/api/alerts/**")
+                                .hasAnyRole("USER", "ADMIN", "WAREHOUSE_MANAGER")
+
+                        // Default: Any remaining endpoint requires authentication
                         .anyRequest().authenticated()
                 )
-                // Add JWT filter before standard UsernamePasswordAuthenticationFilter
+                // Add JWT authentication filter before standard UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

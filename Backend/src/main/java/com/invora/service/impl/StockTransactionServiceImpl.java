@@ -8,6 +8,7 @@ import com.invora.entity.AuditLog;
 import com.invora.entity.Inventory;
 import com.invora.entity.Product;
 import com.invora.entity.Rack;
+import com.invora.entity.Role;
 import com.invora.entity.StockTransaction;
 import com.invora.entity.TransactionType;
 import com.invora.entity.User;

@@ -165,75 +165,75 @@ public class AlertServiceImpl implements AlertService {
             int alertsUpdated = 0;
             int alertsResolved = 0;
 
-        for (Product product : activeProducts) {
-            int currentStock = stockMap.getOrDefault(product.getId(), 0);
-            int threshold = product.getThreshold();
+            for (Product product : activeProducts) {
+                int currentStock = stockMap.getOrDefault(product.getId(), 0);
+                int threshold = product.getThreshold();
 
-            if (currentStock <= threshold) {
-                AlertSeverity severity;
-                if (currentStock == 0) {
-                    severity = AlertSeverity.OUT_OF_STOCK;
-                } else if (currentStock <= threshold * 0.5) {
-                    severity = AlertSeverity.CRITICAL;
+                if (currentStock <= threshold) {
+                    AlertSeverity severity;
+                    if (currentStock == 0) {
+                        severity = AlertSeverity.OUT_OF_STOCK;
+                    } else if (currentStock <= threshold * 0.5) {
+                        severity = AlertSeverity.CRITICAL;
+                    } else {
+                        severity = AlertSeverity.WARNING;
+                    }
+
+                    String message;
+                    if (severity == AlertSeverity.OUT_OF_STOCK) {
+                        message = String.format("Product '%s' (%s) is out of stock (threshold: %d)",
+                                product.getName(), product.getSku(), threshold);
+                    } else {
+                        message = String.format("Stock (%d) is below safety threshold (%d) for %s",
+                                currentStock, threshold, product.getName());
+                    }
+
+                    Optional<Alert> existingOpt = alertRepository.findFirstByProductIdAndStatus(product.getId(), AlertStatus.ACTIVE);
+                    if (existingOpt.isPresent()) {
+                        Alert existing = existingOpt.get();
+                        boolean changed = false;
+                        if (existing.getCurrentStock() != currentStock) {
+                            existing.setCurrentStock(currentStock);
+                            changed = true;
+                        }
+                        if (existing.getThreshold() != threshold) {
+                            existing.setThreshold(threshold);
+                            changed = true;
+                        }
+                        if (existing.getSeverity() != severity) {
+                            existing.setSeverity(severity);
+                            changed = true;
+                        }
+                        if (changed) {
+                            existing.setMessage(message);
+                            alertRepository.save(existing);
+                            alertsUpdated++;
+                        }
+                    } else {
+                        Alert newAlert = new Alert(product, currentStock, threshold, severity, AlertStatus.ACTIVE, message);
+                        alertRepository.save(newAlert);
+                        alertsCreated++;
+                    }
                 } else {
-                    severity = AlertSeverity.WARNING;
-                }
-
-                String message;
-                if (severity == AlertSeverity.OUT_OF_STOCK) {
-                    message = String.format("Product '%s' (%s) is out of stock (threshold: %d)",
-                            product.getName(), product.getSku(), threshold);
-                } else {
-                    message = String.format("Stock (%d) is below safety threshold (%d) for %s",
-                            currentStock, threshold, product.getName());
-                }
-
-                Optional<Alert> existingOpt = alertRepository.findFirstByProductIdAndStatus(product.getId(), AlertStatus.ACTIVE);
-                if (existingOpt.isPresent()) {
-                    Alert existing = existingOpt.get();
-                    boolean changed = false;
-                    if (existing.getCurrentStock() != currentStock) {
+                    Optional<Alert> existingOpt = alertRepository.findFirstByProductIdAndStatus(product.getId(), AlertStatus.ACTIVE);
+                    if (existingOpt.isPresent()) {
+                        Alert existing = existingOpt.get();
+                        existing.setStatus(AlertStatus.RESOLVED);
+                        existing.setResolvedAt(OffsetDateTime.now());
                         existing.setCurrentStock(currentStock);
-                        changed = true;
-                    }
-                    if (existing.getThreshold() != threshold) {
-                        existing.setThreshold(threshold);
-                        changed = true;
-                    }
-                    if (existing.getSeverity() != severity) {
-                        existing.setSeverity(severity);
-                        changed = true;
-                    }
-                    if (changed) {
-                        existing.setMessage(message);
+                        existing.setMessage(String.format("Stock replenished (%d > %d) for %s",
+                                currentStock, threshold, product.getName()));
                         alertRepository.save(existing);
-                        alertsUpdated++;
+                        alertsResolved++;
                     }
-                } else {
-                    Alert newAlert = new Alert(product, currentStock, threshold, severity, AlertStatus.ACTIVE, message);
-                    alertRepository.save(newAlert);
-                    alertsCreated++;
-                }
-            } else {
-                Optional<Alert> existingOpt = alertRepository.findFirstByProductIdAndStatus(product.getId(), AlertStatus.ACTIVE);
-                if (existingOpt.isPresent()) {
-                    Alert existing = existingOpt.get();
-                    existing.setStatus(AlertStatus.RESOLVED);
-                    existing.setResolvedAt(OffsetDateTime.now());
-                    existing.setCurrentStock(currentStock);
-                    existing.setMessage(String.format("Stock replenished (%d > %d) for %s",
-                            currentStock, threshold, product.getName()));
-                    alertRepository.save(existing);
-                    alertsResolved++;
                 }
             }
-        }
 
-        long totalActive = alertRepository.countByStatus(AlertStatus.ACTIVE);
-        List<AlertResponse> activeAlerts = alertRepository.findByStatus(AlertStatus.ACTIVE)
-                .stream()
-                .map(AlertResponse::fromEntity)
-                .toList();
+            long totalActive = alertRepository.countByStatus(AlertStatus.ACTIVE);
+            List<AlertResponse> activeAlerts = alertRepository.findByStatus(AlertStatus.ACTIVE)
+                    .stream()
+                    .map(AlertResponse::fromEntity)
+                    .toList();
 
             return new AlertDetectionResponse(
                     activeProducts.size(),
