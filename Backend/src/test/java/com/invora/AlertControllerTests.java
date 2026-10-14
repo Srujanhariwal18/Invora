@@ -202,7 +202,7 @@ class AlertControllerTests {
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(SEED_ALERT_ID.toString()))
-                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.status").value("ACKNOWLEDGED"))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Purchase order placed with supplier")));
 
         // Verify Audit Log entry created

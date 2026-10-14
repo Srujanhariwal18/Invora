@@ -74,6 +74,17 @@ public class GlobalExceptionHandler {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
         }
 
+        @ExceptionHandler({InsufficientStockException.class, InvalidQuantityException.class})
+        public ResponseEntity<ErrorResponse> handleStockValidationException(
+                        RuntimeException ex, HttpServletRequest request) {
+                ErrorResponse errorResponse = new ErrorResponse(
+                                HttpStatus.CONFLICT.value(),
+                                HttpStatus.CONFLICT.getReasonPhrase(),
+                                ex.getMessage(),
+                                request.getRequestURI());
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+        }
+
         @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
         public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(
                         org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {

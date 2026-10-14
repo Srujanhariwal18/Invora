@@ -10,7 +10,7 @@
 **Project Type:** Java-based Web Application  
 **Primary Technology:** Java  
 **Recommended Backend:** Java Spring Boot  
-**Database:** MySQL  
+**Database:** PostgreSQL (Supabase-compatible)  
 **Frontend:** HTML, CSS, JavaScript, Bootstrap/Tailwind-style custom CSS  
 **Optional 3D:** Three.js on the frontend  
 
@@ -619,7 +619,7 @@ The project is successful when:
 - Dashboard reflects changes
 - Analytics are available
 - Java backend handles business logic
-- MySQL stores persistent data
+- PostgreSQL stores persistent data
 - The application has a polished UI
 - 3D visualization works or gracefully falls back
 

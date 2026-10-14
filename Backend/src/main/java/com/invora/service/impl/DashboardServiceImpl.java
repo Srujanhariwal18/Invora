@@ -15,6 +15,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import com.invora.entity.AlertSeverity;
+import com.invora.entity.AlertStatus;
+import com.invora.entity.TransactionType;
+import com.invora.repository.AlertRepository;
 
 @Service
 @Transactional(readOnly = true)
@@ -26,19 +32,22 @@ public class DashboardServiceImpl implements DashboardService {
     private final WarehouseRepository warehouseRepository;
     private final InventoryRepository inventoryRepository;
     private final StockTransactionRepository stockTransactionRepository;
+    private final AlertRepository alertRepository;
 
     public DashboardServiceImpl(ProductRepository productRepository,
                                 CategoryRepository categoryRepository,
                                 SupplierRepository supplierRepository,
                                 WarehouseRepository warehouseRepository,
                                 InventoryRepository inventoryRepository,
-                                StockTransactionRepository stockTransactionRepository) {
+                                StockTransactionRepository stockTransactionRepository,
+                                AlertRepository alertRepository) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.supplierRepository = supplierRepository;
         this.warehouseRepository = warehouseRepository;
         this.inventoryRepository = inventoryRepository;
         this.stockTransactionRepository = stockTransactionRepository;
+        this.alertRepository = alertRepository;
     }
 
     @Override
@@ -55,6 +64,17 @@ public class DashboardServiceImpl implements DashboardService {
                 : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 
         long lowStockProductsCount = productRepository.countLowStockProducts();
+        OffsetDateTime startOfDay = OffsetDateTime.now(ZoneOffset.UTC).toLocalDate().atStartOfDay().atOffset(ZoneOffset.UTC);
+        long stockInToday = stockTransactionRepository.countByTransactionTypeAndCreatedAtAfter(TransactionType.STOCK_IN, startOfDay);
+        long stockOutToday = stockTransactionRepository.countByTransactionTypeAndCreatedAtAfter(TransactionType.STOCK_OUT, startOfDay);
+        long criticalAlertsCount = alertRepository.countBySeverityAndStatus(AlertSeverity.CRITICAL, AlertStatus.ACTIVE)
+                + alertRepository.countBySeverityAndStatus(AlertSeverity.CRITICAL, AlertStatus.ACKNOWLEDGED);
+        long totalCapacity = warehouseRepository.findAll().stream().mapToLong(w -> Math.max(0, w.getCapacity())).sum();
+        BigDecimal warehouseUtilization = totalCapacity == 0 ? BigDecimal.ZERO
+                : BigDecimal.valueOf(totalStockQuantity).multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(totalCapacity), 2, RoundingMode.HALF_UP);
+        List<String> topMovingProducts = stockTransactionRepository.findTopMovingProducts().stream()
+                .limit(5).map(row -> String.valueOf(row[0])).toList();
 
         List<StockTransactionResponse> recentTransactions = stockTransactionRepository
                 .findTop10ByOrderByCreatedAtDesc()
@@ -70,6 +90,11 @@ public class DashboardServiceImpl implements DashboardService {
                 totalStockQuantity,
                 totalInventoryValuation,
                 lowStockProductsCount,
+                stockInToday,
+                stockOutToday,
+                criticalAlertsCount,
+                warehouseUtilization,
+                topMovingProducts,
                 recentTransactions
         );
     }

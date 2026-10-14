@@ -26,6 +26,7 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
@@ -104,6 +105,7 @@ public class AlertServiceImpl implements AlertService {
             alert.setMessage("[ACKNOWLEDGED] " + currentMsg);
         }
 
+        alert.setStatus(AlertStatus.ACKNOWLEDGED);
         Alert savedAlert = alertRepository.save(alert);
 
         User actingUser = resolveActingUser();
@@ -169,14 +171,16 @@ public class AlertServiceImpl implements AlertService {
                 int currentStock = stockMap.getOrDefault(product.getId(), 0);
                 int threshold = product.getThreshold();
 
-                if (currentStock <= threshold) {
+                if (currentStock <= threshold * 1.5) {
                     AlertSeverity severity;
                     if (currentStock == 0) {
                         severity = AlertSeverity.OUT_OF_STOCK;
                     } else if (currentStock <= threshold * 0.5) {
                         severity = AlertSeverity.CRITICAL;
-                    } else {
+                    } else if (currentStock <= threshold) {
                         severity = AlertSeverity.WARNING;
+                    } else {
+                        severity = AlertSeverity.LOW;
                     }
 
                     String message;
@@ -189,6 +193,9 @@ public class AlertServiceImpl implements AlertService {
                     }
 
                     Optional<Alert> existingOpt = alertRepository.findFirstByProductIdAndStatus(product.getId(), AlertStatus.ACTIVE);
+                    if (existingOpt.isEmpty()) {
+                        existingOpt = alertRepository.findFirstByProductIdAndStatus(product.getId(), AlertStatus.ACKNOWLEDGED);
+                    }
                     if (existingOpt.isPresent()) {
                         Alert existing = existingOpt.get();
                         boolean changed = false;
@@ -216,8 +223,9 @@ public class AlertServiceImpl implements AlertService {
                     }
                 } else {
                     Optional<Alert> existingOpt = alertRepository.findFirstByProductIdAndStatus(product.getId(), AlertStatus.ACTIVE);
-                    if (existingOpt.isPresent()) {
-                        Alert existing = existingOpt.get();
+                    Optional<Alert> acknowledgedOpt = alertRepository.findFirstByProductIdAndStatus(product.getId(), AlertStatus.ACKNOWLEDGED);
+                    if (existingOpt.isPresent() || acknowledgedOpt.isPresent()) {
+                        Alert existing = existingOpt.orElseGet(acknowledgedOpt::get);
                         existing.setStatus(AlertStatus.RESOLVED);
                         existing.setResolvedAt(OffsetDateTime.now());
                         existing.setCurrentStock(currentStock);
@@ -244,6 +252,11 @@ public class AlertServiceImpl implements AlertService {
                     activeAlerts
             );
         }
+    }
+
+    @Scheduled(fixedDelayString = "${invora.alerts.detection-delay-ms:300000}")
+    public void scheduledLowStockDetection() {
+        detectLowStockAlerts();
     }
 
     private User resolveActingUser() {

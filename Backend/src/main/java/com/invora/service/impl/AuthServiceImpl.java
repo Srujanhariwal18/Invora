@@ -6,9 +6,11 @@ import com.invora.dto.RegisterRequest;
 import com.invora.dto.UserProfileResponse;
 import com.invora.entity.Role;
 import com.invora.entity.User;
+import com.invora.entity.AuditLog;
 import com.invora.exception.ConflictException;
 import com.invora.exception.ResourceNotFoundException;
 import com.invora.repository.UserRepository;
+import com.invora.repository.AuditLogRepository;
 import com.invora.security.JwtTokenProvider;
 import com.invora.security.UserPrincipal;
 import com.invora.service.AuthService;
@@ -30,13 +32,16 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final AuditLogRepository auditLogRepository;
 
     public AuthServiceImpl(UserRepository userRepository,
                            PasswordEncoder passwordEncoder,
-                           JwtTokenProvider jwtTokenProvider) {
+                           JwtTokenProvider jwtTokenProvider,
+                           AuditLogRepository auditLogRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.auditLogRepository = auditLogRepository;
     }
 
     @Override
@@ -52,10 +57,7 @@ public class AuthServiceImpl implements AuthService {
 
         String hashedPassword = passwordEncoder.encode(request.password());
 
-        // Default to least-privileged role (VIEWER) for public registration, except admin, to prevent privilege escalation
-        Role initialRole = "admin".equalsIgnoreCase(request.username()) ? Role.ADMIN : Role.VIEWER;
-
-        User user = new User(request.username(), request.email(), hashedPassword, initialRole);
+        User user = new User(request.username(), request.email(), hashedPassword, Role.VIEWER);
         User saved = userRepository.save(user);
 
         String token = jwtTokenProvider.generateToken(saved.getId(), saved.getUsername(), saved.getRole().name());
@@ -65,27 +67,29 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByUsername(request.username())
-                .or(() -> userRepository.findByEmail(request.username()))
-                .orElseThrow(() -> new BadCredentialsException("Invalid username or password"));
+        Optional<User> userResult = userRepository.findByUsername(request.username())
+                .or(() -> userRepository.findByEmail(request.username()));
+        if (userResult.isEmpty()) {
+            auditLogRepository.save(new AuditLog(null, "LOGIN_FAILED", "User", request.username(),
+                    "Login failed for invalid credentials"));
+            throw new BadCredentialsException("Invalid username or password");
+        }
+        User user = userResult.get();
 
-        boolean passwordValid = passwordEncoder.matches(request.password(), user.getPasswordHash())
-                || ("admin".equalsIgnoreCase(user.getUsername()) && "admin".equals(request.password()));
-
-        if (!passwordValid) {
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            auditLogRepository.save(new AuditLog(user, "LOGIN_FAILED", "User", user.getId().toString(),
+                    "Login failed for invalid credentials"));
             throw new BadCredentialsException("Invalid username or password");
         }
 
         if (!user.isActive()) {
+            auditLogRepository.save(new AuditLog(user, "LOGIN_FAILED", "User", user.getId().toString(),
+                    "Login failed for inactive account"));
             throw new DisabledException("User account is inactive. Please contact your administrator.");
         }
 
-        // Ensure administrative account has ADMIN privileges
-        if ("admin".equalsIgnoreCase(user.getUsername()) && user.getRole() != Role.ADMIN) {
-            user.setRole(Role.ADMIN);
-            user = userRepository.save(user);
-        }
-
+        auditLogRepository.save(new AuditLog(user, "LOGIN", "User", user.getId().toString(),
+                "User logged in successfully"));
         String token = jwtTokenProvider.generateToken(user.getId(), user.getUsername(), user.getRole().name());
         return new AuthResponse(token, user.getId(), user.getUsername(), user.getEmail(), user.getRole());
     }

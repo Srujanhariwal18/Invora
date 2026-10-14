@@ -204,18 +204,17 @@ class SecurityAuthorizationTests {
     }
 
     @Test
-    @DisplayName("Role Authorization: WAREHOUSE_MANAGER can mutate catalog and perform stock operations")
+    @DisplayName("Role Authorization: WAREHOUSE_MANAGER is read-only for catalog and can perform stock operations")
     void testRole_WarehouseManager_Permissions() throws Exception {
         String managerToken = createTokenForUser("manager_tester", "manager_t@invora.local", Role.WAREHOUSE_MANAGER);
 
-        // Allowed: POST /api/categories
+        // Catalog mutation remains restricted to ADMIN.
         CategoryRequest catReq = new CategoryRequest("Manager Category", "Created by manager");
         mockMvc.perform(post("/api/categories")
                 .header("Authorization", "Bearer " + managerToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(catReq)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name").value("Manager Category"));
+                .andExpect(status().isForbidden());
 
         // Allowed: POST /api/stock/transactions/in
         StockInRequest stockReq = new StockInRequest(SEED_PRODUCT_ID, SEED_RACK_A1_ID, 15, "PO-MGR", "Manager Stock In", null);

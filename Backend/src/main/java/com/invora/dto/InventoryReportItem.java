@@ -23,9 +23,14 @@ public record InventoryReportItem(
     int quantity,
     BigDecimal unitPrice,
     BigDecimal totalValue,
-    OffsetDateTime updatedAt
+    OffsetDateTime updatedAt,
+    String estimatedDays
 ) {
     public static InventoryReportItem fromEntity(Inventory inventory) {
+        return fromEntity(inventory, 0);
+    }
+
+    public static InventoryReportItem fromEntity(Inventory inventory, long outflowLast30Days) {
         if (inventory == null) {
             return null;
         }
@@ -72,7 +77,11 @@ public record InventoryReportItem(
             inventory.getQuantity(),
             uPrice,
             val,
-            inventory.getUpdatedAt()
+            inventory.getUpdatedAt(),
+            outflowLast30Days == 0 ? "N/A" : BigDecimal.valueOf(inventory.getQuantity())
+                    .multiply(BigDecimal.valueOf(30))
+                    .divide(BigDecimal.valueOf(outflowLast30Days), 1, RoundingMode.HALF_UP)
+                    .toPlainString()
         );
     }
 }

@@ -61,7 +61,6 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // Disable CSRF for stateless REST APIs using Bearer JWT tokens
                 .csrf(AbstractHttpConfigurer::disable)
-                .csrf(AbstractHttpConfigurer::disable)
                 // Stateless session management (no server-side session cookies)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // Custom 401 (Unauthorized) and 403 (Forbidden) JSON error responses
@@ -74,7 +73,7 @@ public class SecurityConfig {
                         // 1. PUBLIC SECTION (Open to all unauthenticated requests)
                         // =========================================================================
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
-                        .requestMatchers("/api/health/**", "/error").permitAll()
+                        .requestMatchers("/api/health/**", "/error", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
 
                         // =========================================================================
                         // 2. ADMIN SECTION (Strictly Admin Access Only: ROLE_ADMIN)
@@ -102,22 +101,31 @@ public class SecurityConfig {
 
                         // Stock transactions (Stock In, Stock Out, Transfer)
                         .requestMatchers(HttpMethod.POST, "/api/stock/transactions/**")
-                                .hasAnyRole("USER", "ADMIN", "WAREHOUSE_MANAGER", "STAFF")
+                                .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER", "STAFF")
 
                         // Warehouse, catalog and alert operations
                         .requestMatchers(HttpMethod.POST,
                                 "/api/categories/**", "/api/products/**", "/api/suppliers/**",
-                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
-                                "/api/alerts/**")
-                                .hasAnyRole("USER", "ADMIN", "WAREHOUSE_MANAGER")
+                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**")
+                                .hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/alerts/*/acknowledge", "/api/alerts/*/resolve")
+                                .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.POST, "/api/alerts/**")
+                                .hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/categories/**", "/api/products/**", "/api/suppliers/**",
                                 "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
-                                "/api/alerts/**")
-                                .hasAnyRole("USER", "ADMIN", "WAREHOUSE_MANAGER")
+                                "/api/alerts/*/acknowledge", "/api/alerts/*/resolve")
+                                .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PUT, "/api/categories/**", "/api/products/**", "/api/suppliers/**",
+                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**")
+                                .hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH,
                                 "/api/alerts/**")
-                                .hasAnyRole("USER", "ADMIN", "WAREHOUSE_MANAGER")
+                                .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PATCH, "/api/products/*/deactivate")
+                                .hasRole("ADMIN")
 
                         // Default: Any remaining endpoint requires authentication
                         .anyRequest().authenticated()
@@ -132,10 +140,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(
-                "http://localhost:5173",
-                "http://127.0.0.1:5173",
-                "http://localhost:4173",
-                "http://127.0.0.1:4173"
+                "http://localhost:8080",
+                "http://127.0.0.1:8080"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));

@@ -22,6 +22,13 @@ public record StockOutRequest(
 
     String reason,
 
+    @Size(max = 200, message = "Destination must not exceed 200 characters")
+    String destination,
+
     UUID performedById
 ) {
+    public StockOutRequest(UUID productId, UUID sourceRackId, int quantity, String reference,
+                           String reason, UUID performedById) {
+        this(productId, sourceRackId, quantity, reference, reason, null, performedById);
+    }
 }

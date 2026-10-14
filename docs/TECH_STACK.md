@@ -21,7 +21,7 @@ The architecture emphasizes strict separation of concerns, enterprise concurrenc
 | **Persistence Layer** | Spring Data JPA / Hibernate | 6.x | Object-relational mapping, custom JPQL queries, pessimistic locking (`@Lock(PESSIMISTIC_WRITE)`), and optimistic locking (`@Version`). |
 | **Database** | Supabase (PostgreSQL) | 15+ | Cloud-hosted managed PostgreSQL via Supabase, `TIMESTAMPTZ` with millisecond precision, explicit foreign keys, indexes, optional Row Level Security (RLS), and `CHECK (quantity >= 0)` constraints. Connection pooling via Supavisor / HikariCP. |
 | **Database Migrations** | Flyway | 10.x (`flyway-core` + `flyway-database-postgresql`) | Versioned, immutable SQL schema migrations (`V1__schema.sql`, `V2__seed_data.sql`). |
-| **Security & Auth** | Spring Security | 6.x | Session-based authentication (`JSESSIONID`, HttpOnly cookies), BCrypt password hashing, role-based access control (`@PreAuthorize`), CSRF protection with cookie token support. |
+| **Security & Auth** | Spring Security | 6.x | Stateless JWT bearer authentication, BCrypt password hashing, and role-based access control. |
 | **Validation** | Jakarta Bean Validation | 3.0 (`hibernate-validator`) | Declarative DTO validation (`@NotNull`, `@Positive`, `@Size`, `@Pattern`, custom constraints). |
 | **Scheduling** | Spring `@Scheduled` | 3.4.x | Automated background tasks for daily inventory summaries, expiry tracking, and alert checks. |
 | **Real-Time Streaming** | Server-Sent Events (`SseEmitter`) | Spring Web | Low-overhead, unidirectional HTTP push channel for live stock updates, threshold status changes, and alert broadcasts. |

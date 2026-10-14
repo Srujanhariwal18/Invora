@@ -8,9 +8,10 @@ Backend/.mvn/timing.properties
 !**/.mvn/wrapper/maven-wrapper.jar
 
 # Spring Boot
-*.jar
 *.war
 *.ear
+*.jar
+!**/.mvn/wrapper/maven-wrapper.jar
 
 # ===== SECRETS — NEVER COMMIT =====
 .env

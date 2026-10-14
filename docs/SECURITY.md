@@ -1,7 +1,7 @@
 ﻿# INVORA: Security and Policy Document
 
 **System:** Invora, Warehouse Inventory Stock IN/OUT & Threshold Alert System
-**Stack:** Java 21, Spring Boot 3.x, Spring Security, MySQL 8, Flyway, HTML/CSS/JS frontend
+**Stack:** Java 21, Spring Boot 3.x, Spring Security, PostgreSQL/Supabase, Flyway, HTML/CSS/JS frontend
 **Version:** 1.0
 **Applies to:** developers, administrators, and all application users
 
@@ -38,7 +38,7 @@ This document defines how Invora protects inventory data, user accounts, and sys
 
 ## 3. AUTHENTICATION [IMPLEMENT]
 
-- Login with username or email plus password via Spring Security form login.
+- Login with username or email plus password via the JWT login endpoint.
 - Passwords stored only as **BCrypt** hashes (strength 12). Never store, log, or return plain text or hashes in any API response.
 - Generic login error: *"Invalid username or password."* Do not reveal which part was wrong.
 - **Account lockout:** after 5 consecutive failed attempts, lock the account for 15 minutes. Track with `failed_attempts` and `locked_until` columns on `users`. Reset the counter on success. Each lockout writes an audit entry.
@@ -60,7 +60,7 @@ This document defines how Invora protects inventory data, user accounts, and sys
 
 ## 4. SESSION MANAGEMENT [IMPLEMENT]
 
-- Server-side session with `JSESSIONID` cookie: `HttpOnly`, `Secure` (when served over HTTPS), `SameSite=Lax`.
+- Stateless JWT access token in the `Authorization: Bearer` header. Tokens must not be sent in URLs.
 - Idle timeout: **30 minutes**. Absolute timeout: **12 hours**.
 - Session fixation protection: new session id on login (Spring default, keep enabled).
 - Maximum **2 concurrent sessions** per user. The oldest is expired.
@@ -161,12 +161,12 @@ Rules:
 
 ## 10. DATABASE SECURITY [IMPLEMENT]
 
-- The application connects with a **dedicated MySQL user** with only the privileges it needs (`SELECT, INSERT, UPDATE, DELETE` on the Invora schema; `INSERT, SELECT` only on `audit_logs` and `stock_transactions`). Flyway migrations run with a separate, higher-privilege user, or at deploy time.
+- The application connects with a dedicated PostgreSQL user with only the privileges it needs. Flyway migrations run with a separate, higher-privilege user, or at deploy time.
 - No `root` user in application configuration.
 - Credentials via environment variables (`DB_URL`, `DB_USER`, `DB_PASSWORD`). Provide `.env.example`; `.env` is in `.gitignore`.
-- Foreign keys, unique constraints, and `CHECK` constraints enabled (MySQL 8.0.16+ enforces CHECK).
-- Database not exposed to the public internet. In Docker Compose, bind MySQL to `127.0.0.1` only.
-- Use TLS for the database connection in production (`useSSL=true`).
+- Foreign keys, unique constraints, and `CHECK` constraints enabled.
+- Database is not exposed to the public internet; use PostgreSQL/Supabase network controls.
+- Use TLS for the database connection in production.
 - Encrypted backups (see section 14).
 
 ---
@@ -182,7 +182,7 @@ Rules:
 
 ## 12. FRONTEND SECURITY [IMPLEMENT]
 
-- No sensitive data in `localStorage` or `sessionStorage`. Authentication relies on the HttpOnly session cookie only.
+- Do not put tokens in `localStorage`; production clients should prefer in-memory token storage.
 - Escape or use `textContent` for all dynamic data. Never use `eval`, `new Function`, or inline event handlers (keeps the CSP strict).
 - Vendor third-party libraries (Three.js, Chart.js, Lucide) into `static/vendor/` with pinned versions, and avoid loading scripts from random CDNs. If a CDN is used, add Subresource Integrity (`integrity` and `crossorigin` attributes).
 - The 3D scene and charts only display data. They never decide stock rules.
@@ -204,7 +204,7 @@ Rules:
 
 ## 14. BACKUP AND RECOVERY [POLICY]
 
-- Daily automated MySQL backup (`mysqldump` or managed snapshots), retained for 30 days, with a weekly copy kept for 12 weeks.
+- Daily automated PostgreSQL backup or managed Supabase snapshots, retained for 30 days, with a weekly copy kept for 12 weeks.
 - Backups are encrypted and stored separately from the database server.
 - Test restoring a backup at least once per quarter.
 - Targets: **RPO** (maximum data loss) of 24 hours, **RTO** (time to restore) of 4 hours.

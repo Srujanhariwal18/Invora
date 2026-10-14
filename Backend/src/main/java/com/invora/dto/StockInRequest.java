@@ -22,6 +22,17 @@ public record StockInRequest(
 
     String reason,
 
+    UUID supplierId,
+
+    @Size(max = 100, message = "Batch must not exceed 100 characters")
+    String batch,
+
+    String notes,
+
     UUID performedById
 ) {
+    public StockInRequest(UUID productId, UUID destinationRackId, int quantity, String reference,
+                          String reason, UUID performedById) {
+        this(productId, destinationRackId, quantity, reference, reason, null, null, null, performedById);
+    }
 }

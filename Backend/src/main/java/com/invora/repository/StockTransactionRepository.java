@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.UUID;
+import java.time.OffsetDateTime;
 
 @Repository
 public interface StockTransactionRepository extends JpaRepository<StockTransaction, UUID>, JpaSpecificationExecutor<StockTransaction> {
@@ -29,4 +30,16 @@ public interface StockTransactionRepository extends JpaRepository<StockTransacti
     boolean existsByRackId(@Param("rackId") UUID rackId);
 
     List<StockTransaction> findTop10ByOrderByCreatedAtDesc();
+
+    long countByTransactionTypeAndCreatedAtAfter(TransactionType transactionType, OffsetDateTime after);
+
+    @Query("SELECT st.product.name, SUM(st.quantity) FROM StockTransaction st " +
+           "WHERE st.transactionType = com.invora.entity.TransactionType.STOCK_OUT " +
+           "GROUP BY st.product.name ORDER BY SUM(st.quantity) DESC")
+    List<Object[]> findTopMovingProducts();
+
+    @Query("SELECT COALESCE(SUM(st.quantity), 0) FROM StockTransaction st " +
+           "WHERE st.product.id = :productId AND st.transactionType = com.invora.entity.TransactionType.STOCK_OUT " +
+           "AND st.createdAt >= :since")
+    long sumStockOutByProductSince(@Param("productId") UUID productId, @Param("since") OffsetDateTime since);
 }

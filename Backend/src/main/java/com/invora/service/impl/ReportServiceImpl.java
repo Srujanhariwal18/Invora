@@ -77,7 +77,10 @@ public class ReportServiceImpl implements ReportService {
                     cb.equal(root.get("product").get("category").get("id"), categoryId));
         }
 
-        return inventoryRepository.findAll(spec, pageable).map(InventoryReportItem::fromEntity);
+        OffsetDateTime since = OffsetDateTime.now().minusDays(30);
+        return inventoryRepository.findAll(spec, pageable)
+                .map(item -> InventoryReportItem.fromEntity(item,
+                        stockTransactionRepository.sumStockOutByProductSince(item.getProduct().getId(), since)));
     }
 
     @Override

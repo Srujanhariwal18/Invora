@@ -27,4 +27,6 @@ public interface AlertRepository extends JpaRepository<Alert, UUID>, JpaSpecific
     List<Alert> findBySeverity(AlertSeverity severity);
 
     long countByStatus(AlertStatus status);
+
+    long countBySeverityAndStatus(AlertSeverity severity, AlertStatus status);
 }

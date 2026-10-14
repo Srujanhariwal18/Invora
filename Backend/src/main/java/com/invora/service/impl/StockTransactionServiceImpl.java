@@ -13,6 +13,8 @@ import com.invora.entity.StockTransaction;
 import com.invora.entity.TransactionType;
 import com.invora.entity.User;
 import com.invora.exception.ConflictException;
+import com.invora.exception.InsufficientStockException;
+import com.invora.exception.InvalidQuantityException;
 import com.invora.exception.ResourceNotFoundException;
 import com.invora.repository.AuditLogRepository;
 import com.invora.repository.InventoryRepository;
@@ -21,6 +23,7 @@ import com.invora.repository.RackRepository;
 import com.invora.repository.StockTransactionRepository;
 import com.invora.repository.UserRepository;
 import com.invora.service.StockTransactionService;
+import com.invora.service.AlertService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,22 +40,25 @@ public class StockTransactionServiceImpl implements StockTransactionService {
     private final RackRepository rackRepository;
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
+    private final AlertService alertService;
 
     public StockTransactionServiceImpl(StockTransactionRepository stockTransactionRepository,
                                        InventoryRepository inventoryRepository,
                                        ProductRepository productRepository,
                                        RackRepository rackRepository,
                                        UserRepository userRepository,
-                                       AuditLogRepository auditLogRepository) {
+                                       AuditLogRepository auditLogRepository,
+                                       AlertService alertService) {
         this.stockTransactionRepository = stockTransactionRepository;
         this.inventoryRepository = inventoryRepository;
         this.productRepository = productRepository;
         this.rackRepository = rackRepository;
         this.userRepository = userRepository;
         this.auditLogRepository = auditLogRepository;
+        this.alertService = alertService;
     }
 
-    private User resolveActingUser(UUID legacyPerformedById) {
+    private User resolveActingUser() {
         org.springframework.security.core.Authentication auth =
                 org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
 
@@ -72,12 +78,6 @@ public class StockTransactionServiceImpl implements StockTransactionService {
             throw new ResourceNotFoundException("User", "username", username);
         }
 
-        // Unauthenticated or invalid context: fail safely rather than selecting a seed admin
-        if (legacyPerformedById != null) {
-            return userRepository.findById(legacyPerformedById)
-                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", legacyPerformedById));
-        }
-
         throw new org.springframework.security.access.AccessDeniedException(
                 "Authentication required: No authenticated user available to record stock transaction");
     }
@@ -86,7 +86,7 @@ public class StockTransactionServiceImpl implements StockTransactionService {
     @Transactional
     public StockTransactionResponse processStockIn(StockInRequest request) {
         if (request.quantity() <= 0) {
-            throw new IllegalArgumentException("Quantity must be positive");
+            throw new InvalidQuantityException("Quantity must be positive");
         }
 
         Product product = productRepository.findById(request.productId())
@@ -107,7 +107,7 @@ public class StockTransactionServiceImpl implements StockTransactionService {
         inventory.setQuantity(newBalance);
         inventoryRepository.save(inventory);
 
-        User user = resolveActingUser(request.performedById());
+        User user = resolveActingUser();
         StockTransaction tx = new StockTransaction(
                 product,
                 TransactionType.STOCK_IN,
@@ -128,6 +128,7 @@ public class StockTransactionServiceImpl implements StockTransactionService {
                 saved.getId().toString(),
                 String.format("Stock IN of %d units for SKU %s into rack %s", saved.getQuantity(), product.getSku(), destinationRack.getCode())
         ));
+        alertService.detectLowStockAlerts();
         return StockTransactionResponse.fromEntity(saved);
     }
 
@@ -135,7 +136,7 @@ public class StockTransactionServiceImpl implements StockTransactionService {
     @Transactional
     public StockTransactionResponse processStockOut(StockOutRequest request) {
         if (request.quantity() <= 0) {
-            throw new IllegalArgumentException("Quantity must be positive");
+            throw new InvalidQuantityException("Quantity must be positive");
         }
 
         Product product = productRepository.findById(request.productId())
@@ -150,7 +151,7 @@ public class StockTransactionServiceImpl implements StockTransactionService {
 
         if (inventory == null || inventory.getQuantity() < request.quantity()) {
             int available = inventory == null ? 0 : inventory.getQuantity();
-            throw new ConflictException("Insufficient stock in rack '" + sourceRack.getCode()
+            throw new InsufficientStockException("Insufficient stock in rack '" + sourceRack.getCode()
                     + "'. Available: " + available + ", requested: " + request.quantity());
         }
 
@@ -158,7 +159,7 @@ public class StockTransactionServiceImpl implements StockTransactionService {
         inventory.setQuantity(newBalance);
         inventoryRepository.save(inventory);
 
-        User user = resolveActingUser(request.performedById());
+        User user = resolveActingUser();
         StockTransaction tx = new StockTransaction(
                 product,
                 TransactionType.STOCK_OUT,
@@ -179,6 +180,7 @@ public class StockTransactionServiceImpl implements StockTransactionService {
                 saved.getId().toString(),
                 String.format("Stock OUT of %d units for SKU %s from rack %s", saved.getQuantity(), product.getSku(), sourceRack.getCode())
         ));
+        alertService.detectLowStockAlerts();
         return StockTransactionResponse.fromEntity(saved);
     }
 
@@ -186,7 +188,7 @@ public class StockTransactionServiceImpl implements StockTransactionService {
     @Transactional
     public StockTransactionResponse processStockTransfer(StockTransferRequest request) {
         if (request.quantity() <= 0) {
-            throw new IllegalArgumentException("Quantity must be positive");
+            throw new InvalidQuantityException("Quantity must be positive");
         }
 
         if (request.sourceRackId().equals(request.destinationRackId())) {
@@ -218,7 +220,7 @@ public class StockTransactionServiceImpl implements StockTransactionService {
 
         if (sourceInv == null || sourceInv.getQuantity() < request.quantity()) {
             int available = sourceInv == null ? 0 : sourceInv.getQuantity();
-            throw new ConflictException("Insufficient stock in source rack '" + sourceRack.getCode()
+            throw new InsufficientStockException("Insufficient stock in source rack '" + sourceRack.getCode()
                     + "'. Available: " + available + ", requested: " + request.quantity());
         }
 
@@ -233,7 +235,7 @@ public class StockTransactionServiceImpl implements StockTransactionService {
         inventoryRepository.save(sourceInv);
         inventoryRepository.save(destInv);
 
-        User user = resolveActingUser(request.performedById());
+        User user = resolveActingUser();
         StockTransaction tx = new StockTransaction(
                 product,
                 TransactionType.TRANSFER,
@@ -254,6 +256,7 @@ public class StockTransactionServiceImpl implements StockTransactionService {
                 saved.getId().toString(),
                 String.format("Stock TRANSFER of %d units for SKU %s from rack %s to rack %s", saved.getQuantity(), product.getSku(), sourceRack.getCode(), destinationRack.getCode())
         ));
+        alertService.detectLowStockAlerts();
         return StockTransactionResponse.fromEntity(saved);
     }
 
