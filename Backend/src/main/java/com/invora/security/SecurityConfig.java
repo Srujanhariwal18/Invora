@@ -115,12 +115,11 @@ public class SecurityConfig {
                                 .hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/categories/**", "/api/products/**", "/api/suppliers/**",
-                                "/api/warehouses/**", "/api/zones/**", "/api/racks/**",
-                                "/api/alerts/*/acknowledge", "/api/alerts/*/resolve")
-                                .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
-                        .requestMatchers(HttpMethod.PUT, "/api/categories/**", "/api/products/**", "/api/suppliers/**",
                                 "/api/warehouses/**", "/api/zones/**", "/api/racks/**")
                                 .hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/alerts/*/acknowledge", "/api/alerts/*/resolve")
+                                .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
                         .requestMatchers(HttpMethod.PATCH,
                                 "/api/alerts/**")
                                 .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")

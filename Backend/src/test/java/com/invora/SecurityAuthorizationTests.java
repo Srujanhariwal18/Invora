@@ -2,6 +2,7 @@ package com.invora;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.invora.dto.CategoryRequest;
+import com.invora.dto.ProductRequest;
 import com.invora.dto.StockInRequest;
 import com.invora.entity.Role;
 import com.invora.entity.StockTransaction;
@@ -31,6 +32,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -67,6 +69,8 @@ class SecurityAuthorizationTests {
     private static final UUID SEED_PRODUCT_ID = UUID.fromString("d0000000-0000-0000-0000-000000000001");
     private static final UUID SEED_RACK_A1_ID = UUID.fromString("e2000000-0000-0000-0000-000000000001");
     private static final UUID SEED_ADMIN_ID = UUID.fromString("a0000000-0000-0000-0000-000000000001");
+    private static final UUID SEED_CATEGORY_ID = UUID.fromString("b0000000-0000-0000-0000-000000000001");
+    private static final UUID SEED_SUPPLIER_ID = UUID.fromString("c0000000-0000-0000-0000-000000000001");
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
@@ -314,6 +318,50 @@ class SecurityAuthorizationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.section").value("ADMIN"))
                 .andExpect(jsonPath("$.status").value("HEALTHY"));
+    }
+
+    @Test
+    @DisplayName("Catalog updates: WAREHOUSE_MANAGER is forbidden and ADMIN is authorized")
+    void testCatalogUpdates_RoleAuthorization() throws Exception {
+        String managerToken = createTokenForUser("manager_catalog", "manager_catalog@invora.local",
+                Role.WAREHOUSE_MANAGER);
+        String adminToken = createTokenForUser("admin_catalog", "admin_catalog@invora.local", Role.ADMIN);
+
+        CategoryRequest categoryRequest = new CategoryRequest("Manager Update Attempt", "Should not update");
+        ProductRequest productRequest = new ProductRequest(
+                "SKU-BOLT-M10-UPDATED",
+                "Updated Bolt",
+                SEED_CATEGORY_ID,
+                SEED_SUPPLIER_ID,
+                "pcs",
+                java.math.BigDecimal.ONE,
+                10,
+                20,
+                "Updated by admin");
+
+        mockMvc.perform(put("/api/categories/{id}", SEED_CATEGORY_ID)
+                        .header("Authorization", "Bearer " + managerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(categoryRequest)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(put("/api/products/{id}", SEED_PRODUCT_ID)
+                        .header("Authorization", "Bearer " + managerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(productRequest)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(put("/api/categories/{id}", SEED_CATEGORY_ID)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(categoryRequest)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/products/{id}", SEED_PRODUCT_ID)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(productRequest)))
+                .andExpect(status().isOk());
     }
 
     @Test
